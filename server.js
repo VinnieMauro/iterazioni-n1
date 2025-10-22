@@ -22,9 +22,9 @@ const clientIdMap = new Map(); // socket.id → assigned numeric ID
 
 app.use(express.static(path.join(__dirname, "public")));
 
-// Serve only index.html (no Android redirection)
+// Serve receiver.html as the main client
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.sendFile(path.join(__dirname, "public", "receiver.html"));
 });
 
 let senderSocketId = null;
@@ -39,7 +39,6 @@ const listenerIdMap = new Map(); // socket.id → myId
 io.on("connection", (socket) => {
   console.log("🆕 Client connected:", socket.id);
 
-  // Assign a unique incremental ID to this socket
   const assignedId = nextClientId++;
   clientIdMap.set(socket.id, assignedId);
   socket.emit("assignId", assignedId);
@@ -86,7 +85,6 @@ io.on("connection", (socket) => {
     if (socket.id === senderSocketId) senderSocketId = null;
     console.log("❌ Client disconnected:", socket.id);
 
-    // Remove assigned ID for this socket
     clientIdMap.delete(socket.id);
   });
 
