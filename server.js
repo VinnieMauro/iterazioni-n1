@@ -16,19 +16,15 @@ const options = {
 const server = https.createServer(options, app);
 const io = new Server(server);
 
-// ID numerici progressivi per client
+// Progressive numeric IDs for connected clients
 let nextClientId = 1;
 const clientIdMap = new Map(); // socket.id → assigned numeric ID
 
 app.use(express.static(path.join(__dirname, "public")));
 
+// Serve only index.html (no Android redirection)
 app.get("/", (req, res) => {
-  const ua = req.headers["user-agent"] || "";
-  if (/android/i.test(ua)) {
-    res.sendFile(path.join(__dirname, "public", "index-mindar.html"));
-  } else {
-    res.sendFile(path.join(__dirname, "public", "index.html"));
-  }
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 let senderSocketId = null;
@@ -41,22 +37,22 @@ const cubePositions = {
 const listenerIdMap = new Map(); // socket.id → myId
 
 io.on("connection", (socket) => {
-  console.log("🆕 Client connesso:", socket.id);
+  console.log("🆕 Client connected:", socket.id);
 
-  // assegna un ID univoco e incrementale a questo socket
+  // Assign a unique incremental ID to this socket
   const assignedId = nextClientId++;
   clientIdMap.set(socket.id, assignedId);
   socket.emit("assignId", assignedId);
-  console.log(`🆔 ID assegnato a ${socket.id}: ${assignedId}`);
+  console.log(`🆔 Assigned ID to ${socket.id}: ${assignedId}`);
 
   socket.on("sender-ready", () => {
     senderSocketId = socket.id;
-    console.log("🚀 Sender pronto:", senderSocketId);
+    console.log("🚀 Sender ready:", senderSocketId);
   });
 
   socket.on("receiver-ready", () => {
     receivers.add(socket.id);
-    console.log("👂 Receiver pronto:", socket.id);
+    console.log("👂 Receiver ready:", socket.id);
 
     Object.entries(cubePositions).forEach(([index, pos]) => {
       io.to(socket.id).emit("move-cube", { index: parseInt(index), ...pos });
@@ -70,7 +66,7 @@ io.on("connection", (socket) => {
   socket.on("move-cube", ({ index, x, y, z }) => {
     cubePositions[index] = { x, y, z };
     socket.broadcast.emit("move-cube", { index, x, y, z });
-    console.log(`📦 Cubo ${index} spostato a x:${x}, y:${y}, z:${z}`);
+    console.log(`📦 Cube ${index} moved to x:${x}, y:${y}, z:${z}`);
   });
 
   socket.on("listener-position", ({ id, x, z }) => {
@@ -83,14 +79,14 @@ io.on("connection", (socket) => {
     if (listenerId) {
       io.emit("listener-disconnected", listenerId);
       listenerIdMap.delete(socket.id);
-      console.log(`🗑️ Listener ${listenerId} rimosso`);
+      console.log(`🗑️ Listener ${listenerId} removed`);
     }
 
     receivers.delete(socket.id);
     if (socket.id === senderSocketId) senderSocketId = null;
-    console.log("❌ Client disconnesso:", socket.id);
+    console.log("❌ Client disconnected:", socket.id);
 
-    // rimuove l'ID assegnato a questo socket
+    // Remove assigned ID for this socket
     clientIdMap.delete(socket.id);
   });
 
@@ -107,7 +103,7 @@ io.on("connection", (socket) => {
   });
 });
 
-// 🔽 Solo per il log dell'interfaccia selezionata
+// 🔽 Utility: log available network interfaces
 function getLocalIPv4Interfaces() {
   const interfaces = os.networkInterfaces();
   const list = [];
@@ -125,24 +121,23 @@ const PORT = process.env.PORT || 3000;
 const interfaces = getLocalIPv4Interfaces();
 
 if (interfaces.length === 0) {
-  console.log(`🌐 Server HTTPS attivo su https://localhost:${PORT}`);
+  console.log(`🌐 HTTPS server running at https://localhost:${PORT}`);
   server.listen(PORT, '0.0.0.0');
 } else {
-  console.log("🌐 Interfacce disponibili:");
+  console.log("🌐 Available network interfaces:");
   interfaces.forEach((iface, i) => {
     console.log(`  [${i}] ${iface.name}: ${iface.address}`);
   });
 
-  const readline = require("readline");
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
-  rl.question("Seleziona l'interfaccia da usare per il log (numero): ", (answer) => {
+  rl.question("Select the interface to use for logging (number): ", (answer) => {
     const index = parseInt(answer);
     const ip = (interfaces[index] && interfaces[index].address) || 'localhost';
     rl.close();
 
     server.listen(PORT, '0.0.0.0', () => {
-      console.log(`🌐 Server HTTPS attivo su https://${ip}:${PORT}`);
+      console.log(`🌐 HTTPS server running at https://${ip}:${PORT}`);
     });
   });
 }

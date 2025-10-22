@@ -1,21 +1,21 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
   <script>
     const ua = navigator.userAgent.toLowerCase();
     if (ua.includes("android")) {
       window.location.href = "/index-android.html";
     } else if (ua.includes("iphone") || ua.includes("ipad") || ua.includes("ipod")) {
-      // resta su index.html
+      // stay on index.html
     } else {
       document.addEventListener("DOMContentLoaded", function() {
-        document.body.innerHTML = "Dispositivo non riconosciuto.";
+        document.body.innerHTML = "Unrecognized device.";
       });
     }
   </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Receiver AR + Audio 3D (module)</title>
+  <title>Receiver AR + 3D Audio (module)</title>
   <style>
     body { margin: 0; overflow: hidden; }
 
@@ -43,8 +43,8 @@
 </head>
 <body>
   <div id="overlay">
-    Tocca per abilitare audio, sensori e AR
-    <button id="enableButton">Abilita</button>
+    Tap to enable audio, sensors, and AR
+    <button id="enableButton">Enable</button>
   </div>
 
   <script type="module">
@@ -56,7 +56,7 @@
     let myId;
     socket.on('assignId', id => {
       myId = id;
-      console.log('ID assegnato:', myId);
+      console.log('Assigned ID:', myId);
     });
 
     let camera, scene, renderer;
@@ -69,7 +69,7 @@
     const buffers = {};
     let audioContext = null;
 
-    // Vettori riutilizzabili per performance e stabilità
+    // Reusable vectors for performance and stability
     const camWorldPos = new THREE.Vector3();
     const audioWorldPos = new THREE.Vector3();
 
@@ -106,7 +106,7 @@
         positionalAudios[i] = new THREE.PositionalAudio(listener);
         cube.add(positionalAudios[i]);
 
-        // Configurazione attenuazione
+        // Attenuation setup
         positionalAudios[i].setRefDistance(0.2);
         positionalAudios[i].setRolloffFactor(1.5);
         positionalAudios[i].setDistanceModel('exponential');
@@ -126,28 +126,27 @@
     function animate() {
       renderer.setAnimationLoop(() => {
         try {
-          // Ottieni la camera XR (camera group)
+          // Get XR camera group
           const xrCamGroup = renderer.xr.getCamera();
-          // Estrai posizione in mondo dalla matrixWorld in modo riutilizzando il vettore
+          // Extract world position from matrixWorld, reusing the vector
           camWorldPos.setFromMatrixPosition(xrCamGroup.matrixWorld);
-          // Aggiorna il listener audio basandosi sulla matrixWorld (posizione + orientamento)
+          // Update audio listener based on matrixWorld (position + orientation)
           listener.position.copy(camWorldPos);
           listener.quaternion.setFromRotationMatrix(xrCamGroup.matrixWorld);
           listener.updateMatrixWorld();
-          // Per eventuali invii al server usa camWorldPos.x, camWorldPos.z
+          // For optional server updates use camWorldPos.x, camWorldPos.z
 
-          // Aggiorna le matrici degli oggetti in scena per sincronizzare audio spaziale
+          // Update scene matrices for audio spatialization sync
           scene.updateMatrixWorld();
 
-          // Sincronizza manualmente la posizione delle sorgenti audio con i cubi
+          // Manually sync the audio sources with cube positions
           [1, 2].forEach(i => {
             if (!streamSourceReady[i] || !positionalAudios[i].panner) return;
-            // Usa vettore riutilizzabile per evitare GC
             cubes[i].getWorldPosition(audioWorldPos);
             positionalAudios[i].panner.setPosition(audioWorldPos.x, audioWorldPos.y, audioWorldPos.z);
           });
 
-          // Invia la posizione del listener (XR camera) al server
+          // Send listener (XR camera) position to the server
           socket.emit('listener-position', {
             id: myId,
             x: camWorldPos.x,
@@ -176,7 +175,7 @@
         await initAR();
         socket.emit('receiver-ready');
       } catch (e) {
-        alert('❌ Errore permessi sensori o audio: ' + e.message);
+        alert('❌ Error enabling sensors or audio: ' + e.message);
         console.error(e);
       }
     };

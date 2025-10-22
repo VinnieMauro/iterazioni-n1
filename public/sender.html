@@ -1,138 +1,400 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Interazioni n.1 - WebRTC + Map Integration</title>
-
-  <!-- CSS da webrtc-sender.html -->
+  <meta charset="UTF-8" />
+  <title>WebRTC Sender + 2D Map</title>
+  <script src="/socket.io/socket.io.js"></script>
   <style>
-    /* Inizio stili webrtc-sender */
-    body { margin: 0; font-family: Arial, sans-serif; background: #222; color: #eee; }
-    #sender-container { padding: 1rem; }
-    .audio-control { margin-bottom: 1rem; }
-    button { padding: 0.5rem 1rem; background: #444; border: none; color: #eee; cursor: pointer; }
-    button:disabled { opacity: 0.5; cursor: default; }
-    /* Fine stili webrtc-sender */
-  </style>
-
-  <!-- CSS da map.html -->
-  <style>
-    /* Inizio stili map */
-    #map { position: absolute; top: 0; right: 0; width: 50%; height: 100%; }
-    #webrtc { position: absolute; top: 0; left: 0; width: 50%; height: 100%; }
-    /* Fine stili map */
-  </style>
-
-  <!-- Stili per layout integrato -->
-  <style>
-    #app { display: flex; height: 100vh; }
-    #webrtc { flex: 1; overflow: auto; background: #111; }
-    #map { flex: 1; background: #000; }
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    section {
+      width: 100%;
+      max-width: 900px;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    #sender-section {
+      background: #fafafa;
+      border-bottom: 2px solid #ccc;
+    }
+    #map-section {
+      background: #fff;
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .map-container {
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      width: 100%;
+    }
+    canvas {
+      border: 1px solid #ccc;
+      background: #f8f8f8;
+      display: inline-block;
+    }
+    button, select {
+      padding: 10px 20px;
+      margin: 5px 10px 5px 0;
+      font-size: 16px;
+    }
+    label { margin-right: 8px; }
+    .status {
+      background: #f0f0f0;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+      font-family: monospace;
+    }
   </style>
 </head>
 <body>
-  <div id="app">
-    <!-- Sezione WebRTC Sender -->
-    <div id="webrtc">
-      <div id="sender-container">
-        <h1>WebRTC Sender</h1>
-        <div class="audio-control">
-          <label for="audioSource">Seleziona Sorgente Audio:</label>
-          <select id="audioSource"></select>
-        </div>
-        <button id="startBtn" disabled>Avvia Streaming</button>
-        <button id="stopBtn" disabled>Ferma Streaming</button>
-      </div>
-    </div>
 
-    <!-- Sezione Map -->
-    <div id="map">
-      <h1>Map</h1>
-      <canvas id="canvas3d"></canvas>
-    </div>
-  </div>
+  <!-- ==================== SENDER SECTION ==================== -->
+  <section id="sender-section">
+    <h1>Audio Sender + Cube Controller</h1>
 
-  <!-- Script libraries esterne -->
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <label for="inputDevice">Select audio input device:</label>
+    <select id="inputDevice"></select>
 
-  <!-- JavaScript da webrtc-sender.html -->
-  <script>
-    // Inizio script webrtc-sender
-    const audioSelect = document.getElementById('audioSource');
-    const startBtn = document.getElementById('startBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    let pc;
+    <br><br>
+    <button id="start">Start streaming</button>
+    <button id="moveRed">Move red cube</button>
+    <button id="moveGreen">Move green cube</button>
 
-    navigator.mediaDevices.enumerateDevices()
-      .then(devices => {
-        devices.forEach(device => {
-          if (device.kind === 'audioinput') {
-            const option = document.createElement('option');
-            option.value = device.deviceId;
-            option.text = device.label || `Microfono ${audioSelect.length+1}`;
-            audioSelect.appendChild(option);
-          }
-        });
-        startBtn.disabled = false;
+    <div id="status" class="status">Status: Waiting...</div>
+
+    <script>
+      const socket = io();
+
+      socket.emit("sender-ready");
+      socket.on("connect", () => {
+        socket.emit("sender-ready");
+        updateStatus("🔄 sender-ready re-emitted after reconnect");
       });
 
-    startBtn.onclick = () => {
-      startBtn.disabled = true;
-      stopBtn.disabled = false;
-      const audioSource = audioSelect.value;
-      const constraints = { audio: { deviceId: audioSource ? { exact: audioSource } : undefined } };
-      navigator.mediaDevices.getUserMedia(constraints)
-        .then(stream => {
-          pc = new RTCPeerConnection();
-          stream.getTracks().forEach(track => pc.addTrack(track, stream));
-          return pc.createOffer();
-        })
-        .then(offer => pc.setLocalDescription(offer))
-        .then(() => {
-          // Invia offer al server
-          fetch('/offer', {
-            method: 'POST',
-            body: JSON.stringify({ sdp: pc.localDescription })
-          });
+      const peers = new Map();
+      const audioContexts = new Map();
+      let selectedDeviceId = null;
+      const deviceSelect = document.getElementById("inputDevice");
+      const statusDiv = document.getElementById("status");
+
+      function updateStatus(msg) {
+        statusDiv.textContent = `Status: ${msg}`;
+        console.log(msg);
+      }
+
+      async function requestAudioPermission() {
+        try {
+          const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          tempStream.getTracks().forEach(track => track.stop());
+          updateStatus("Microphone permission granted");
+        } catch (e) {
+          updateStatus("❌ Microphone permission denied");
+        }
+      }
+
+      async function enumerateDevices() {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        deviceSelect.innerHTML = "";
+        
+        const audioInputs = devices.filter(d => d.kind === "audioinput");
+        audioInputs.forEach(device => {
+          const option = document.createElement("option");
+          option.value = device.deviceId;
+          option.text = device.label || `Input ${device.deviceId.substring(0, 8)}...`;
+          deviceSelect.appendChild(option);
         });
-    };
+        
+        if (deviceSelect.options.length > 0) {
+          selectedDeviceId = deviceSelect.value;
+          updateStatus(`${audioInputs.length} audio input(s) found`);
+        } else {
+          updateStatus("❌ No audio input devices found");
+        }
+      }
 
-    stopBtn.onclick = () => {
-      pc.getSenders().forEach(sender => pc.removeTrack(sender));
-      pc.close();
-      startBtn.disabled = false;
-      stopBtn.disabled = true;
-    };
-    // Fine script webrtc-sender
-  </script>
+      deviceSelect.onchange = () => {
+        selectedDeviceId = deviceSelect.value;
+        updateStatus(`Selected device: ${deviceSelect.options[deviceSelect.selectedIndex].text}`);
+      };
 
-  <!-- JavaScript da map.html -->
-  <script>
-    // Inizio script map
-    const socket = io();
-    const sceneEl = document.createElement('a-scene');
-    document.getElementById('map').appendChild(sceneEl);
+      async function createMonoStream(deviceId, channelIndex) {
+        try {
+          const ctx = new AudioContext();
+          const originalStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              deviceId: { exact: deviceId },
+              channelCount: 2,
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false,
+              sampleRate: 48000
+            }
+          });
 
-    for (let i = 0; i < 2; i++) {
-      const cube = document.createElement('a-box');
-      cube.setAttribute('id', `cube${i}`);
-      cube.setAttribute('color', i===0?'red':'blue');
-      cube.setAttribute('position', { x: i*2-1, y: 1, z: -3 });
-      sceneEl.appendChild(cube);
-    }
+          updateStatus(`Original stream obtained for channel ${channelIndex}`);
 
-    socket.on('position', data => {
-      const cube = document.getElementById(`cube${data.id}`);
-      if (cube) cube.setAttribute('position', data.pos);
-    });
-    // Fine script map
-  </script>
+          const source = ctx.createMediaStreamSource(originalStream);
+          const splitter = ctx.createChannelSplitter(2);
+          const merger = ctx.createChannelMerger(1);
+          const destination = ctx.createMediaStreamDestination();
 
-  <!-- Script per integrazione (vuoto, codice originale non modificato) -->
-  <script>
-    // Eventuali funzioni comuni o bridge, se necessarie
-  </script>
+          source.connect(splitter);
+          splitter.connect(merger, channelIndex, 0);
+          merger.connect(destination);
+
+          audioContexts.set(`${deviceId}-${channelIndex}`, {
+            context: ctx,
+            originalStream,
+            destination
+          });
+
+          updateStatus(`✅ Mono stream created for channel ${channelIndex}`);
+          return destination.stream;
+          
+        } catch (error) {
+          updateStatus(`❌ Error creating mono stream for channel ${channelIndex}: ${error.message}`);
+          throw error;
+        }
+      }
+
+      async function createPeer(receiverId, cubeIndex) {
+        if (!selectedDeviceId) {
+          updateStatus("⚠️ Select an audio device before starting");
+          return;
+        }
+        
+        try {
+          const channelIndex = cubeIndex - 1;
+          const audioKey = `${selectedDeviceId}-${channelIndex}`;
+          let stream;
+          if (audioContexts.has(audioKey)) {
+            stream = audioContexts.get(audioKey).destination.stream;
+          } else {
+            stream = await createMonoStream(selectedDeviceId, channelIndex);
+          }
+          
+          updateStatus(`🎤 Stream ready for cube ${cubeIndex} (channel ${channelIndex})`);
+
+          const peer = new RTCPeerConnection({ iceServers: [] });
+
+          stream.getTracks().forEach(track => {
+            peer.addTrack(track, stream);
+            updateStatus(`🎵 Track added for cube ${cubeIndex}: ${track.kind}`);
+          });
+
+          peer.onicecandidate = e => {
+            if (e.candidate) {
+              socket.emit("webrtc-candidate", {
+                target: receiverId,
+                candidate: e.candidate,
+                cubeIndex
+              });
+            }
+          };
+
+          peer.onconnectionstatechange = () => {
+            updateStatus(`🔗 Connection state for cube ${cubeIndex}: ${peer.connectionState}`);
+            if (["disconnected","failed","closed"].includes(peer.connectionState)) {
+              const key = `${receiverId}-${cubeIndex}`;
+              if (peers.has(key)) {
+                peers.get(key).close();
+                peers.delete(key);
+                updateStatus(`❌ Peer removed for receiver ${receiverId}, cube ${cubeIndex}`);
+              }
+            }
+          };
+
+          const offer = await peer.createOffer();
+          await peer.setLocalDescription(offer);
+          
+          socket.emit("webrtc-offer", {
+            target: receiverId,
+            offer: peer.localDescription,
+            cubeIndex
+          });
+
+          peers.set(`${receiverId}-${cubeIndex}`, peer);
+          updateStatus(`🔔 Peer created for receiver ${receiverId}, cube ${cubeIndex}`);
+          
+        } catch (error) {
+          updateStatus(`❌ Error creating peer: ${error.message}`);
+        }
+      }
+
+      socket.on("new-receiver", async ({ receiverId }) => {
+        updateStatus(`🎯 New receiver detected: ${receiverId}`);
+        for (const cubeIndex of [1, 2]) {
+          const key = `${receiverId}-${cubeIndex}`;
+          if (peers.has(key)) {
+            peers.get(key).close();
+            peers.delete(key);
+            updateStatus(`♻️ Previous peer closed for cube ${cubeIndex}`);
+          }
+        }
+        setTimeout(async () => {
+          await createPeer(receiverId, 1);
+          await createPeer(receiverId, 2);
+          updateStatus(`✅ Peers created for receiver ${receiverId}`);
+        }, 300);
+      });
+
+      socket.on("webrtc-answer", ({ from, answer, cubeIndex }) => {
+        const key = `${from}-${cubeIndex}`;
+        if (peers.has(key)) {
+          peers.get(key).setRemoteDescription(new RTCSessionDescription(answer));
+          updateStatus(`🛎️ Answer received from ${from} for cube ${cubeIndex}`);
+        }
+      });
+
+      socket.on("webrtc-candidate", ({ from, candidate, cubeIndex }) => {
+        const key = `${from}-${cubeIndex}`;
+        if (peers.has(key)) {
+          peers.get(key).addIceCandidate(new RTCIceCandidate(candidate));
+          updateStatus(`📡 Candidate added for cube ${cubeIndex}`);
+        }
+      });
+
+      document.getElementById("start").onclick = () => {
+        if (!selectedDeviceId) {
+          updateStatus("⚠️ Select an audio input before starting");
+          return;
+        }
+        updateStatus("✅ Sender ready, waiting for receivers...");
+      };
+
+      function sendPosition(index, x, y, z) {
+        socket.emit("move-cube", { index, x, y, z });
+        updateStatus(`📡 Cube ${index===1?'red':'green'} moved to x:${x.toFixed(2)}, y:${y.toFixed(2)}, z:${z.toFixed(2)}`);
+      }
+
+      document.getElementById("moveRed").onclick = () => sendPosition(1, Math.random()*4-2, 0, Math.random()*-4);
+      document.getElementById("moveGreen").onclick = () => sendPosition(2, Math.random()*4-2, 0, Math.random()*-4);
+
+      window.addEventListener('beforeunload', () => {
+        peers.forEach(peer => peer.close());
+        audioContexts.forEach(({ context, originalStream }) => {
+          originalStream.getTracks().forEach(t => t.stop());
+          if (context.state !== 'closed') context.close();
+        });
+      });
+
+      (async () => {
+        await requestAudioPermission();
+        await enumerateDevices();
+        updateStatus("🎬 Initialization complete");
+      })();
+    </script>
+  </section>
+
+  <!-- ==================== MAP SECTION ==================== -->
+  <section id="map-section">
+    <div class="map-container">
+      <canvas id="mapCanvas" width="400" height="400"></canvas>
+      <canvas id="sideCanvas" width="400" height="400"></canvas>
+    </div>
+
+    <script type="module">
+      import { io } from './libs/socket.io/packages/socket.io/client-dist/socket.io.esm.min.js';
+      const socketMap = io();
+      socketMap.emit('receiver-ready');
+
+      const mapCanvas = document.getElementById('mapCanvas');
+      const mapCtx = mapCanvas.getContext('2d');
+      const sideCanvas = document.getElementById('sideCanvas');
+      const sideCtx = sideCanvas.getContext('2d');
+
+      const positions = {
+        1: { x: 0, y: 0, z: 0 },
+        2: { x: 0, y: 0, z: 0 },
+        listeners: {}
+      };
+
+      function drawTopView() {
+        mapCtx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
+        mapCtx.save();
+        mapCtx.translate(mapCanvas.width / 2, mapCanvas.height / 2);
+        mapCtx.font = '12px sans-serif';
+
+        mapCtx.fillStyle = 'red';
+        mapCtx.fillRect(positions[1].x * 20 - 5, positions[1].z * 20 - 5, 10, 10);
+        mapCtx.fillText(`(${positions[1].x.toFixed(1)}, ${positions[1].z.toFixed(1)})`, positions[1].x * 20 - 20, positions[1].z * 20 - 10);
+
+        mapCtx.fillStyle = 'green';
+        mapCtx.fillRect(positions[2].x * 20 - 5, positions[2].z * 20 - 5, 10, 10);
+        mapCtx.fillText(`(${positions[2].x.toFixed(1)}, ${positions[2].z.toFixed(1)})`, positions[2].x * 20 - 20, positions[2].z * 20 - 10);
+
+        for (const id in positions.listeners) {
+          const pos = positions.listeners[id];
+          mapCtx.fillStyle = 'blue';
+          mapCtx.beginPath();
+          mapCtx.arc(pos.x * 20, pos.z * 20, 6, 0, 2 * Math.PI);
+          mapCtx.fill();
+          mapCtx.fillText(`${id.slice(0,6)}`, pos.x * 20 + 8, pos.z * 20);
+          mapCtx.fillText(`(${pos.x.toFixed(1)}, ${pos.z.toFixed(1)})`, pos.x * 20 - 20, pos.z * 20 - 10);
+        }
+
+        mapCtx.restore();
+      }
+
+      function drawSideView() {
+        sideCtx.clearRect(0, 0, sideCanvas.width, sideCanvas.height);
+        sideCtx.save();
+        sideCtx.translate(sideCanvas.width / 2, sideCanvas.height / 2);
+        sideCtx.font = '12px sans-serif';
+
+        sideCtx.fillStyle = 'red';
+        sideCtx.fillRect(positions[1].x * 20 - 5, -positions[1].y * 20 - 5, 10, 10);
+        sideCtx.fillText(`(${positions[1].x.toFixed(1)}, ${positions[1].y.toFixed(1)})`, positions[1].x * 20 - 20, -positions[1].y * 20 - 10);
+
+        sideCtx.fillStyle = 'green';
+        sideCtx.fillRect(positions[2].x * 20 - 5, -positions[2].y * 20 - 5, 10, 10);
+        sideCtx.fillText(`(${positions[2].x.toFixed(1)}, ${positions[2].y.toFixed(1)})`, positions[2].x * 20 - 20, -positions[2].y * 20 - 10);
+
+        for (const id in positions.listeners) {
+          const pos = positions.listeners[id];
+          sideCtx.fillStyle = 'blue';
+          sideCtx.beginPath();
+          sideCtx.arc(pos.x * 20, -pos.y * 20, 6, 0, 2 * Math.PI);
+          sideCtx.fill();
+          sideCtx.fillText(`${id.slice(0,6)}`, pos.x * 20 + 8, -pos.y * 20);
+          sideCtx.fillText(`(${pos.x.toFixed(1)}, ${pos.y.toFixed(1)})`, pos.x * 20 - 20, -pos.y * 20 - 10);
+        }
+
+        sideCtx.restore();
+      }
+
+      function draw() { drawTopView(); drawSideView(); }
+
+      socketMap.on('move-cube', ({ index, x, y, z }) => {
+        positions[index] = { x, y, z };
+        draw();
+      });
+
+      socketMap.on('listener-position', ({ id, x, y = 0, z }) => {
+        positions.listeners[id] = { x, y, z };
+        draw();
+      });
+
+      socketMap.on('listener-disconnected', id => {
+        delete positions.listeners[id];
+        draw();
+      });
+
+      draw();
+    </script>
+  </section>
+
 </body>
 </html>

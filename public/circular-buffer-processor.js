@@ -16,7 +16,7 @@ class CircularBufferProcessor extends AudioWorkletProcessor {
         if (this._bufferedSamples < this._bufferSize) {
           this._bufferedSamples++;
         } else {
-          // Sovrascrittura: avanza anche il readIndex per non leggere dati vecchi
+          // Overwrite: advance readIndex as well to avoid reading outdated data
           this._readIndex = (this._readIndex + 1) % this._bufferSize;
         }
       }
@@ -33,7 +33,7 @@ class CircularBufferProcessor extends AudioWorkletProcessor {
         this._readIndex = (this._readIndex + 1) % this._bufferSize;
         this._bufferedSamples--;
       } else {
-        channel[i] = 0; // Silenzio se buffer vuoto
+        channel[i] = 0; // Silence if buffer is empty
       }
     }
 
