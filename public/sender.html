@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Interazioni n.1 - WebRTC + Map Integration</title>
+
+  <!-- CSS da webrtc-sender.html -->
+  <style>
+    /* Inizio stili webrtc-sender */
+    body { margin: 0; font-family: Arial, sans-serif; background: #222; color: #eee; }
+    #sender-container { padding: 1rem; }
+    .audio-control { margin-bottom: 1rem; }
+    button { padding: 0.5rem 1rem; background: #444; border: none; color: #eee; cursor: pointer; }
+    button:disabled { opacity: 0.5; cursor: default; }
+    /* Fine stili webrtc-sender */
+  </style>
+
+  <!-- CSS da map.html -->
+  <style>
+    /* Inizio stili map */
+    #map { position: absolute; top: 0; right: 0; width: 50%; height: 100%; }
+    #webrtc { position: absolute; top: 0; left: 0; width: 50%; height: 100%; }
+    /* Fine stili map */
+  </style>
+
+  <!-- Stili per layout integrato -->
+  <style>
+    #app { display: flex; height: 100vh; }
+    #webrtc { flex: 1; overflow: auto; background: #111; }
+    #map { flex: 1; background: #000; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Sezione WebRTC Sender -->
+    <div id="webrtc">
+      <div id="sender-container">
+        <h1>WebRTC Sender</h1>
+        <div class="audio-control">
+          <label for="audioSource">Seleziona Sorgente Audio:</label>
+          <select id="audioSource"></select>
+        </div>
+        <button id="startBtn" disabled>Avvia Streaming</button>
+        <button id="stopBtn" disabled>Ferma Streaming</button>
+      </div>
+    </div>
+
+    <!-- Sezione Map -->
+    <div id="map">
+      <h1>Map</h1>
+      <canvas id="canvas3d"></canvas>
+    </div>
+  </div>
+
+  <!-- Script libraries esterne -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+
+  <!-- JavaScript da webrtc-sender.html -->
+  <script>
+    // Inizio script webrtc-sender
+    const audioSelect = document.getElementById('audioSource');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    let pc;
+
+    navigator.mediaDevices.enumerateDevices()
+      .then(devices => {
+        devices.forEach(device => {
+          if (device.kind === 'audioinput') {
+            const option = document.createElement('option');
+            option.value = device.deviceId;
+            option.text = device.label || `Microfono ${audioSelect.length+1}`;
+            audioSelect.appendChild(option);
+          }
+        });
+        startBtn.disabled = false;
+      });
+
+    startBtn.onclick = () => {
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      const audioSource = audioSelect.value;
+      const constraints = { audio: { deviceId: audioSource ? { exact: audioSource } : undefined } };
+      navigator.mediaDevices.getUserMedia(constraints)
+        .then(stream => {
+          pc = new RTCPeerConnection();
+          stream.getTracks().forEach(track => pc.addTrack(track, stream));
+          return pc.createOffer();
+        })
+        .then(offer => pc.setLocalDescription(offer))
+        .then(() => {
+          // Invia offer al server
+          fetch('/offer', {
+            method: 'POST',
+            body: JSON.stringify({ sdp: pc.localDescription })
+          });
+        });
+    };
+
+    stopBtn.onclick = () => {
+      pc.getSenders().forEach(sender => pc.removeTrack(sender));
+      pc.close();
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+    };
+    // Fine script webrtc-sender
+  </script>
+
+  <!-- JavaScript da map.html -->
+  <script>
+    // Inizio script map
+    const socket = io();
+    const sceneEl = document.createElement('a-scene');
+    document.getElementById('map').appendChild(sceneEl);
+
+    for (let i = 0; i < 2; i++) {
+      const cube = document.createElement('a-box');
+      cube.setAttribute('id', `cube${i}`);
+      cube.setAttribute('color', i===0?'red':'blue');
+      cube.setAttribute('position', { x: i*2-1, y: 1, z: -3 });
+      sceneEl.appendChild(cube);
+    }
+
+    socket.on('position', data => {
+      const cube = document.getElementById(`cube${data.id}`);
+      if (cube) cube.setAttribute('position', data.pos);
+    });
+    // Fine script map
+  </script>
+
+  <!-- Script per integrazione (vuoto, codice originale non modificato) -->
+  <script>
+    // Eventuali funzioni comuni o bridge, se necessarie
+  </script>
+</body>
+</html>
