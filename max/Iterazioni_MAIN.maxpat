@@ -10,10 +10,34 @@
 		}
 ,
 		"classnamespace" : "box",
-		"rect" : [ 547.0, 213.0, 931.0, 514.0 ],
+		"rect" : [ 282.0, 87.0, 931.0, 511.0 ],
 		"openinpresentation" : 1,
 		"gridsize" : [ 15.0, 15.0 ],
 		"boxes" : [ 			{
+				"box" : 				{
+					"id" : "obj-225",
+					"maxclass" : "message",
+					"numinlets" : 2,
+					"numoutlets" : 1,
+					"outlettype" : [ "" ],
+					"patching_rect" : [ 1032.0, 531.0, 523.0, 22.0 ],
+					"text" : "args \"Macintosh HD:/Users/vinnie/Desktop/Composizione 1/iterazioni-n1/public/controller-max.js\""
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-110",
+					"maxclass" : "message",
+					"numinlets" : 2,
+					"numoutlets" : 1,
+					"outlettype" : [ "" ],
+					"patching_rect" : [ 83.0, 774.0, 396.0, 22.0 ],
+					"text" : "Macintosh HD:/Users/vinnie/Desktop/Composizione 1/iterazioni-n1/max/"
+				}
+
+			}
+, 			{
 				"box" : 				{
 					"id" : "obj-19",
 					"maxclass" : "newobj",
@@ -2880,14 +2904,16 @@
 					"numinlets" : 1,
 					"numoutlets" : 2,
 					"outlettype" : [ "", "" ],
-					"patching_rect" : [ 140.5, 269.0, 487.0, 22.0 ],
+					"patching_rect" : [ 140.5, 269.0, 159.0, 22.0 ],
 					"saved_object_attributes" : 					{
 						"autostart" : 0,
 						"defer" : 0,
+						"node_bin_path" : "",
+						"npm_bin_path" : "",
 						"watch" : 0
 					}
 ,
-					"text" : "node.script \"/Users/vinnie/Desktop/Composizione 1/iterazioni-app/public/controller-max.js\"",
+					"text" : "node.script controller-max.js",
 					"textfile" : 					{
 						"filename" : "controller-max.js",
 						"flags" : 0,
@@ -3626,6 +3652,13 @@
 			}
 , 			{
 				"patchline" : 				{
+					"destination" : [ "obj-1", 0 ],
+					"source" : [ "obj-225", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
 					"destination" : [ "obj-231", 0 ],
 					"source" : [ "obj-229", 0 ]
 				}
@@ -4343,8 +4376,8 @@
 ,
 		"dependency_cache" : [ 			{
 				"name" : "controller-max.js",
-				"bootpath" : "~/Desktop/Composizione 1/iterazioni-app/public",
-				"patcherrelativepath" : "../iterazioni-app/public",
+				"bootpath" : "~/Desktop/Composizione 1/iterazioni-n1/max",
+				"patcherrelativepath" : ".",
 				"type" : "TEXT",
 				"implicit" : 1
 			}
@@ -4423,42 +4456,42 @@
 , 			{
 				"name" : "xy.MASS~.maxpat",
 				"bootpath" : "~/Documents/Max 9/Packages/XY Coordinates Generator Pack/patchers/MASS_Coordinates",
-				"patcherrelativepath" : "../../../Documents/Max 9/Packages/XY Coordinates Generator Pack/patchers/MASS_Coordinates",
+				"patcherrelativepath" : "../../../../Documents/Max 9/Packages/XY Coordinates Generator Pack/patchers/MASS_Coordinates",
 				"type" : "JSON",
 				"implicit" : 1
 			}
 , 			{
 				"name" : "xy.RANDOM~.maxpat",
 				"bootpath" : "~/Documents/Max 9/Packages/XY Coordinates Generator Pack/patchers/RANDOM_Coordinates",
-				"patcherrelativepath" : "../../../Documents/Max 9/Packages/XY Coordinates Generator Pack/patchers/RANDOM_Coordinates",
+				"patcherrelativepath" : "../../../../Documents/Max 9/Packages/XY Coordinates Generator Pack/patchers/RANDOM_Coordinates",
 				"type" : "JSON",
 				"implicit" : 1
 			}
 , 			{
 				"name" : "xy.WAVE~.maxpat",
 				"bootpath" : "~/Documents/Max 9/Packages/XY Coordinates Generator Pack/patchers/WAVE_Coordinates",
-				"patcherrelativepath" : "../../../Documents/Max 9/Packages/XY Coordinates Generator Pack/patchers/WAVE_Coordinates",
+				"patcherrelativepath" : "../../../../Documents/Max 9/Packages/XY Coordinates Generator Pack/patchers/WAVE_Coordinates",
 				"type" : "JSON",
 				"implicit" : 1
 			}
 , 			{
 				"name" : "xy.mass.gendsp",
 				"bootpath" : "~/Documents/Max 9/Packages/XY Coordinates Generator Pack/code",
-				"patcherrelativepath" : "../../../Documents/Max 9/Packages/XY Coordinates Generator Pack/code",
+				"patcherrelativepath" : "../../../../Documents/Max 9/Packages/XY Coordinates Generator Pack/code",
 				"type" : "gDSP",
 				"implicit" : 1
 			}
 , 			{
 				"name" : "xy.random.gendsp",
 				"bootpath" : "~/Documents/Max 9/Packages/XY Coordinates Generator Pack/code",
-				"patcherrelativepath" : "../../../Documents/Max 9/Packages/XY Coordinates Generator Pack/code",
+				"patcherrelativepath" : "../../../../Documents/Max 9/Packages/XY Coordinates Generator Pack/code",
 				"type" : "gDSP",
 				"implicit" : 1
 			}
 , 			{
 				"name" : "xy.wave.gendsp",
 				"bootpath" : "~/Documents/Max 9/Packages/XY Coordinates Generator Pack/code",
-				"patcherrelativepath" : "../../../Documents/Max 9/Packages/XY Coordinates Generator Pack/code",
+				"patcherrelativepath" : "../../../../Documents/Max 9/Packages/XY Coordinates Generator Pack/code",
 				"type" : "gDSP",
 				"implicit" : 1
 			}
